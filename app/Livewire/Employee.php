@@ -2,7 +2,9 @@
 
 namespace App\Livewire;
 
+use App\Models\Company as CompanyModel;
 use App\Models\Employee as EmployeeModel;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -18,13 +20,17 @@ class Employee extends Component
         'company_id' => '',
     ];
 
+    public $rows = [];
+
+    public $showForm = false;
+
     protected function rules(): array
     {
         return [
             'employee.name' => 'required|string|max:255',
             'employee.email' => 'required|email|max:255',
             'employee.phone_number' => 'required|string|max:30',
-            'employee.company_id' => 'required|exists:companies,id',
+            'employee.company_id' => 'nullable|exists:companies,id',
         ];
     }
 
@@ -33,14 +39,35 @@ class Employee extends Component
         $this->refreshEmployees();
     }
 
+    public function openForm(): void
+    {
+        $this->showForm = true;
+    }
+
+    public function closeForm(): void
+    {
+        $this->reset('employee', 'showForm');
+        $this->resetValidation();
+    }
+
     public function refreshEmployees(): void
     {
         try {
             $this->employees = EmployeeModel::all();
+
+            $this->rows = $this->employees
+                ->mapWithKeys(fn ($e) => [$e->id => $e->only([
+                    'name',
+                    'email',
+                    'phone_number',
+                    'company_id',
+                ])])
+                ->toArray();
         } catch (\Exception $e) {
             session()->flash('error', 'Er is iets misgegaan bij het ophalen van de werknemers.');
 
             $this->employees = [];
+            $this->rows = [];
         }
     }
 
@@ -49,43 +76,44 @@ class Employee extends Component
         $this->validate();
 
         try {
-            EmployeeModel::create($this->employee);
+            $data = $this->employee;
+            $data['company_id'] = $data['company_id'] ?: null;
 
-            $this->reset('employee');
+            EmployeeModel::create($data);
+
+            $this->reset('employee', 'showForm');
 
             $this->refreshEmployees();
         } catch (\Exception $e) {
+            report($e);
             session()->flash('error', 'Er is iets misgegaan bij het opslaan.');
-
-            return;
         }
     }
 
-    public function update($employeeId): void
+    public function updateEmployee(int $employeeId): void
     {
-        $this->validate();
+        $this->validate(collect($this->rules())
+            ->mapWithKeys(fn ($rule, $field) => [
+                "rows.$employeeId.".Str::after($field, 'employee.') => $rule,
+            ])
+            ->all()
+        );
 
         try {
-            $employee = EmployeeModel::findOrFail($employeeId);
+            $data = $this->rows[$employeeId];
+            $data['company_id'] = $data['company_id'] ?: null;
 
-            $employee->update($this->employee);
-
-            $this->reset('employee');
-
-            $this->refreshEmployees();
+            EmployeeModel::findOrFail($employeeId)->update($data);
         } catch (\Exception $e) {
+            report($e);
             session()->flash('error', 'Er is iets misgegaan bij het bijwerken.');
-
-            return;
         }
     }
 
     public function delete($employeeId): void
     {
         try {
-            $employee = EmployeeModel::findOrFail($employeeId);
-
-            $employee->delete();
+            EmployeeModel::findOrFail($employeeId)->delete();
 
             $this->refreshEmployees();
         } catch (\Exception $e) {
@@ -97,6 +125,8 @@ class Employee extends Component
 
     public function render()
     {
-        return view('livewire.employee');
+        return view('livewire.employee', [
+            'companies' => CompanyModel::orderBy('name')->get(),
+        ]);
     }
 }

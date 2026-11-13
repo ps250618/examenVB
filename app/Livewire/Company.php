@@ -20,9 +20,9 @@ class Company extends Component
         'phone_number' => '',
     ];
 
-    public array $rows = [];
+    public $rows = [];
 
-    public bool $showForm = false;
+    public $showForm = false;
 
     protected function rules(): array
     {
@@ -106,9 +106,7 @@ class Company extends Component
     public function delete($companyId): void
     {
         try {
-            $company = CompanyModel::findOrFail($companyId);
-
-            $company->delete();
+            CompanyModel::findOrFail($companyId)->delete();
 
             $this->refreshCompany();
         } catch (\Exception $e) {
