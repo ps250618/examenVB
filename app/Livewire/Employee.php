@@ -3,18 +3,19 @@
 namespace App\Livewire;
 
 use App\Models\Employee as EmployeeModel;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class Employee extends Component
 {
     public $employees = [];
 
     public $employee = [
         'name' => '',
-        'address' => '',
         'email' => '',
-        'postal_code' => '',
         'phone_number' => '',
+        'company_id' => '',
     ];
 
     protected function rules(): array
@@ -34,38 +35,64 @@ class Employee extends Component
 
     public function refreshEmployees(): void
     {
-        $this->employees = EmployeeModel::all();
+        try {
+            $this->employees = EmployeeModel::all();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het ophalen van de werknemers.');
+
+            $this->employees = [];
+        }
     }
 
     public function save(): void
     {
         $this->validate();
 
-        EmployeeModel::create($this->employee);
+        try {
+            EmployeeModel::create($this->employee);
 
-        $this->reset('employee');
-        $this->refreshEmployees();
+            $this->reset('employee');
+
+            $this->refreshEmployees();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het opslaan.');
+
+            return;
+        }
     }
 
     public function update($employeeId): void
     {
         $this->validate();
 
-        $employee = EmployeeModel::findOrFail($employeeId);
+        try {
+            $employee = EmployeeModel::findOrFail($employeeId);
 
-        $employee->update($this->employee);
+            $employee->update($this->employee);
 
-        $this->reset('employee');
-        $this->refreshEmployees();
+            $this->reset('employee');
+
+            $this->refreshEmployees();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het bijwerken.');
+
+            return;
+        }
     }
 
     public function delete($employeeId): void
     {
-        $employee = EmployeeModel::findOrFail($employeeId);
+        try {
+            $employee = EmployeeModel::findOrFail($employeeId);
 
-        $employee->delete();
+            $employee->delete();
 
-        $this->refreshEmployees();
+            $this->refreshEmployees();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het verwijderen.');
+
+            return;
+        }
     }
 
     public function render()

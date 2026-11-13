@@ -77,4 +77,30 @@ class CompanyTest extends TestCase
             'phone_number' => '0687654321',
         ]);
     }
+
+    public function test_company_can_not_be_created(): void
+    {
+        Livewire::test(CompanyComponent::class)
+            ->set('company.name', '')
+            ->set('company.address', '')
+            ->set('company.email', '')
+            ->set('company.postal_code', '')
+            ->set('company.phone_number', '')
+            ->call('save')
+            ->assertHasErrors();
+    }
+
+    public function test_company_can_not_be_updated(): void
+    {
+        $company = Company::factory()->create();
+
+        Livewire::test(CompanyComponent::class)
+            ->set('company.name', '')
+            ->set('company.address', '')
+            ->set('company.email', '')
+            ->set('company.postal_code', '')
+            ->set('company.phone_number', '')
+            ->call('update', $company->id)
+            ->assertHasErrors();
+    }
 }

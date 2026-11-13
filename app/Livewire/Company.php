@@ -3,8 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\Company as CompanyModel;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('layouts.app')]
 class Company extends Component
 {
     public $companies = [];
@@ -16,6 +19,10 @@ class Company extends Component
         'postal_code' => '',
         'phone_number' => '',
     ];
+
+    public array $rows = [];
+
+    public bool $showForm = false;
 
     protected function rules(): array
     {
@@ -33,40 +40,82 @@ class Company extends Component
         $this->refreshCompany();
     }
 
+    public function openForm(): void
+    {
+        $this->showForm = true;
+    }
+
+    public function closeForm(): void
+    {
+        $this->reset('company', 'showForm');
+        $this->resetValidation();
+    }
+
     public function refreshCompany(): void
     {
-        $this->companies = CompanyModel::all();
+        try {
+            $this->companies = CompanyModel::all();
+
+            $this->rows = $this->companies
+                ->mapWithKeys(fn ($c) => [$c->id => $c->only([
+                    'name', 'address', 'postal_code', 'email', 'phone_number',
+                ])])
+                ->toArray();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het ophalen van de bedrijven.');
+
+            $this->companies = [];
+            $this->rows = [];
+        }
     }
 
     public function save(): void
     {
         $this->validate();
 
-        CompanyModel::create($this->company);
+        try {
+            CompanyModel::create($this->company);
 
-        $this->reset('company');
-        $this->refreshCompany();
+            $this->reset('company', 'showForm');
+
+            $this->refreshCompany();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het opslaan.');
+
+            return;
+        }
     }
 
-    public function update($companyId): void
+    public function updateCompany(int $companyId): void
     {
-        $this->validate();
+        $this->validate(
+            collect($this->rules())
+                ->mapWithKeys(fn ($rule, $field) => [
+                    "rows.$companyId.".Str::after($field, 'company.') => $rule,
+                ])
+                ->all()
+        );
 
-        $company = CompanyModel::findOrFail($companyId);
-
-        $company->update($this->company);
-
-        $this->reset('company');
-        $this->refreshCompany();
+        try {
+            CompanyModel::findOrFail($companyId)->update($this->rows[$companyId]);
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het bijwerken.');
+        }
     }
 
     public function delete($companyId): void
     {
-        $company = CompanyModel::findOrFail($companyId);
+        try {
+            $company = CompanyModel::findOrFail($companyId);
 
-        $company->delete();
+            $company->delete();
 
-        $this->refreshCompany();
+            $this->refreshCompany();
+        } catch (\Exception $e) {
+            session()->flash('error', 'Er is iets misgegaan bij het verwijderen: '.$e->getMessage());
+
+            return;
+        }
     }
 
     public function render()

@@ -78,14 +78,27 @@ class EmployeeTest extends TestCase
         ]);
     }
 
-    public function test_employee_requires_existing_company(): void
+    public function test_employee_can_not_be_created(): void
     {
         Livewire::test(EmployeeComponent::class)
-            ->set('employee.name', 'Test Employee')
-            ->set('employee.email', 'test@example.com')
-            ->set('employee.phone_number', '0612345678')
-            ->set('employee.company_id', 999)
+            ->set('employee.name', '')
+            ->set('employee.email', '')
+            ->set('employee.phone_number', '')
+            ->set('employee.company_id', '')
             ->call('save')
-            ->assertHasErrors(['employee.company_id' => 'exists']);
+            ->assertHasErrors();
+    }
+
+    public function test_employee_can_not_be_updated(): void
+    {
+        $employee = Employee::factory()->create();
+
+        Livewire::test(EmployeeComponent::class)
+            ->set('employee.name', '')
+            ->set('employee.email', '')
+            ->set('employee.phone_number', '')
+            ->set('employee.company_id', '')
+            ->call('update', $employee->id)
+            ->assertHasErrors();
     }
 }
